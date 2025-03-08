@@ -352,10 +352,7 @@ void Object::BuildMovementUpdate(ByteBuffer* data, uint8 updateFlags) const
             case TYPEID_GAMEOBJECT:
             case TYPEID_DYNAMICOBJECT:
             case TYPEID_CORPSE:
-                *data << uint32(GetGUIDLow());              // GetGUIDLow()
-                break;
-            case TYPEID_UNIT:
-                *data << uint32(0x0000000B);                // unk, can be 0xB or 0xC
+                *data << uint32(GetObjectGuid().GetLower());
                 break;
             case TYPEID_PLAYER:
                 if (updateFlags & UPDATEFLAG_SELF)
@@ -380,10 +377,10 @@ void Object::BuildMovementUpdate(ByteBuffer* data, uint8 updateFlags) const
             case TYPEID_GAMEOBJECT:
             case TYPEID_DYNAMICOBJECT:
             case TYPEID_CORPSE:
-                *data << uint32(GetObjectGuid().GetHigh()); // GetGUIDHigh()
+                *data << uint32(GetObjectGuid().GetUpper());
                 break;
             default:
-                *data << uint32(0x00000000);                // unk
+                *data << uint32(0x0000000B);                // unk
                 break;
         }
     }

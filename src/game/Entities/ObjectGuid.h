@@ -121,6 +121,9 @@ class ObjectGuid
 
         uint32 GetMaxCounter() const { return GetMaxCounter(GetHigh()); }
 
+        uint32 GetUpper() const { return m_guid >> 32; }
+        uint32 GetLower() const { return m_guid; }
+
         bool IsEmpty()             const { return m_guid == 0;                                }
         bool IsCreature()          const { return GetHigh() == HIGHGUID_UNIT;                 }
         bool IsPet()               const { return GetHigh() == HIGHGUID_PET;                  }
