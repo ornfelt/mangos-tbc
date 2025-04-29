@@ -2016,9 +2016,9 @@ inline bool IsSimilarAuraEffect(SpellEntry const* entry, uint32 effect, SpellEnt
             IsPositiveEffect(entry2, SpellEffectIndex(effect2)) == IsPositiveEffect(entry, SpellEffectIndex(effect)));
 }
 
-inline bool IsStackableAuraEffect(SpellEntry const* entry, SpellEntry const* entry2, uint32 i, Unit* pTarget = nullptr)
+inline bool IsStackableAuraEffect(SpellEntry const* entry, SpellEntry const* entry2, SpellEffectIndex effIdx, Unit* target = nullptr)
 {
-    const uint32 aura = entry->EffectApplyAuraName[i];
+    const uint32 aura = entry->EffectApplyAuraName[effIdx];
     // Ignore non-aura effects
     if (!aura)
         return true;
@@ -2027,7 +2027,7 @@ inline bool IsStackableAuraEffect(SpellEntry const* entry, SpellEntry const* ent
     uint32 similar = EFFECT_INDEX_0;
     for (uint32 e = EFFECT_INDEX_0; e < MAX_EFFECT_INDEX; ++e)
     {
-        if (IsSimilarAuraEffect(entry, i, entry2, e))
+        if (IsSimilarAuraEffect(entry, effIdx, entry2, e))
         {
             similar = e;
             break;
@@ -2045,7 +2045,7 @@ inline bool IsStackableAuraEffect(SpellEntry const* entry, SpellEntry const* ent
         return true;
 
     // Short alias
-    const bool positive = (IsPositiveEffect(entry, SpellEffectIndex(i)));
+    const bool positive = (IsPositiveEffect(entry, effIdx));
     const bool related = (entry->SpellFamilyName == entry2->SpellFamilyName);
     const bool siblings = (entry->SpellFamilyFlags == entry2->SpellFamilyFlags);
     const bool player = (entry->SpellFamilyName && !entry->SpellFamilyFlags.Empty());
@@ -2093,7 +2093,7 @@ inline bool IsStackableAuraEffect(SpellEntry const* entry, SpellEntry const* ent
         // DoT
         case SPELL_AURA_PERIODIC_LEECH:
         case SPELL_AURA_PERIODIC_MANA_LEECH:
-            if (pTarget && pTarget->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED))
+            if (target && target->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PLAYER_CONTROLLED))
                 return false;
             break;
         case SPELL_AURA_PERIODIC_DAMAGE:
@@ -2121,13 +2121,13 @@ inline bool IsStackableAuraEffect(SpellEntry const* entry, SpellEntry const* ent
             break;
         case SPELL_AURA_MOD_ATTACK_POWER:
             // Attack Power debuffs logic: Do not stack Curse of Weakness, Demoralizing Roars/Shouts
-            if (!positive && entry->EffectBasePoints[i] < 1 && entry2->EffectBasePoints[similar] < 1)
+            if (!positive && entry->EffectBasePoints[effIdx] < 1 && entry2->EffectBasePoints[similar] < 1)
                 return (!entry->SpellFamilyName && !entry2->SpellFamilyName);
             break;
         // Armor & Resistance buffs and debuffs logic
         case SPELL_AURA_MOD_RESISTANCE:
         {
-            if (entry->EffectMiscValue[i] != entry2->EffectMiscValue[similar])
+            if (entry->EffectMiscValue[effIdx] != entry2->EffectMiscValue[similar])
                 break;
             if (positive)
             {
@@ -2150,7 +2150,7 @@ inline bool IsStackableAuraEffect(SpellEntry const* entry, SpellEntry const* ent
         }
         case SPELL_AURA_MOD_RESISTANCE_PCT:
         {
-            if (entry->EffectMiscValue[i] != entry2->EffectMiscValue[similar])
+            if (entry->EffectMiscValue[effIdx] != entry2->EffectMiscValue[similar])
                 break;
             if (positive && entry->Dispel && entry->Dispel == entry2->Dispel)
                 return false; // Inspiration / Ancestral Fortitude
@@ -2168,7 +2168,7 @@ inline bool IsStackableAuraEffect(SpellEntry const* entry, SpellEntry const* ent
                 return true;
             if (entry->Id == 24425 && entry2->Id == 24425) // Spirit of Zandalar - shouldnt stack with itself
                 return false;
-            if (entry->EffectMiscValue[i] != entry2->EffectMiscValue[similar])
+            if (entry->EffectMiscValue[effIdx] != entry2->EffectMiscValue[similar])
                 break;
             if (positive)
             {
@@ -2203,7 +2203,7 @@ inline bool IsStackableAuraEffect(SpellEntry const* entry, SpellEntry const* ent
             break;
         case SPELL_AURA_MOD_RATING: // Rejuvenation also has this
         {
-            if (entry->EffectMiscValue[i] != entry2->EffectMiscValue[similar])
+            if (entry->EffectMiscValue[effIdx] != entry2->EffectMiscValue[similar])
                 break;
             if (entry->Dispel && entry->Dispel == entry2->Dispel)
             {
@@ -2225,7 +2225,7 @@ inline bool IsStackableAuraEffect(SpellEntry const* entry, SpellEntry const* ent
         case SPELL_AURA_MOD_HEALING_PCT:
             // Do not stack similar debuffs: Mortal Strike, Aimed Shot, Hex of Weakness
             if (!positive)
-                return (entry->EffectMiscValue[i] == entry2->EffectMiscValue[similar]);
+                return (entry->EffectMiscValue[effIdx] == entry2->EffectMiscValue[similar]);
             break;
         case SPELL_AURA_MOD_MELEE_HASTE:
         case SPELL_AURA_MOD_RANGED_HASTE:
@@ -2295,7 +2295,7 @@ inline bool IsStackableSpell(SpellEntry const* entry, SpellEntry const* entry2, 
 {
     for (uint32 i = EFFECT_INDEX_0; i < MAX_EFFECT_INDEX; ++i)
     {
-        if (entry->Effect[i] && entry->EffectApplyAuraName[i] && !IsStackableAuraEffect(entry, entry2, i, pTarget))
+        if (entry->Effect[i] && entry->EffectApplyAuraName[i] && !IsStackableAuraEffect(entry, entry2, SpellEffectIndex(i), pTarget))
             return false;
     }
     return true;
