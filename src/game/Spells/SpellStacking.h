@@ -20,14 +20,35 @@
 #define _SPELLSTACKING_H
 
 #include "Server/DBCEnums.h"
+#include <map>
 
 struct SpellEntry;
 class Unit;
 
 enum class SpellGroupRule
 {
-    UNIQUE_PER_TARGET,
+    UNIQUE,
     UNIQUE_PER_CASTER,
+};
+
+enum class SpellGroupId
+{
+    WELL_FED = 3, // hardcoded for current compliance with old code
+    MAX = 64,
+};
+
+struct SpellGroup
+{
+    uint32 Id;
+    SpellGroupRule rule;
+    std::string name;
+    std::vector<uint32> spellIds;
+};
+
+struct SpellGroupSpellData
+{
+    uint64 mask;
+    SpellGroupRule rule;
 };
 
 class SpellStacker
@@ -38,10 +59,16 @@ class SpellStacker
 
         static SpellStacker& Instance();
 
+        void LoadSpellGroups();
+
         bool IsStackableAuraEffect(SpellEntry const* entry, SpellEntry const* entry2, SpellEffectIndex effIdx, Unit* target) const;
         bool IsStackableSpell(SpellEntry const* entry, SpellEntry const* entry2, Unit* target) const;
         bool IsSpellStackableWithSpell(SpellEntry const* entry1, SpellEntry const* entry2, Unit* target) const;
         bool IsSpellStackableWithSpellForDifferentCasters(SpellEntry const* entry1, SpellEntry const* entry2, bool isSameChain, Unit* target) const;
+
+    private:
+        std::map<uint32, SpellGroup> m_spellGroups;
+        std::map<uint32, SpellGroupSpellData> m_spellGroupSpellData;
 };
 
 #define sSpellStacker SpellStacker::Instance()

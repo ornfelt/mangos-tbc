@@ -1925,55 +1925,6 @@ inline bool IsGroupRestrictedBuff(SpellEntry const* spellInfo)
     return false;
 }
 
-// Caster Centric Specific: A target cannot have more than one instance of specific per caster
-// This a relaxed rule and does not automatically exclude multi-ranking, multi-ranking should be handled separately (usually on effect stacking level)
-// Example: Curses. One curse per caster, Curse of Agony and Curse of Doom ranks are stackable among casters, the rest of curse stacking logic is handled on effect basis
-inline bool IsSpellSpecificUniquePerCaster(SpellSpecific specific)
-{
-    switch (int32(specific))
-    {
-        case SPELL_BLESSING:
-        case SPELL_AURA:
-        case SPELL_STING:
-        case SPELL_CURSE:
-        case SPELL_ASPECT:
-        case SPELL_SHOUT_BUFF:
-        case SPELL_JUDGEMENT:
-        case SPELL_CORRUPTION:
-            return true;
-        default:
-            break;
-    }
-    return false;
-}
-
-// Target Centric Specific: A target cannot have more than one instance of specific applied to it
-// This is a restrictive rule and automatically excludes multi-ranking possibility
-// Example: Elemental Shield. No matter who it came from, only last one and the strongest one should stay.
-inline bool IsSpellSpecificUniquePerTarget(SpellSpecific specific)
-{
-    switch (int32(specific))
-    {
-        case SPELL_SEAL:
-        case SPELL_TRACKER:
-        case SPELL_WARLOCK_ARMOR:
-        case SPELL_MAGE_ARMOR:
-        case SPELL_ELEMENTAL_SHIELD:
-        case SPELL_BUFF_CASTER_POWER:
-        case SPELL_WELL_FED:
-        case SPELL_BATTLE_ELIXIR:
-        case SPELL_GUARDIAN_ELIXIR:
-        case SPELL_FLASK_ELIXIR:
-        case SPELL_FOOD:
-        case SPELL_DRINK:
-        case SPELL_FOOD_AND_DRINK:
-            return true;
-        default:
-            break;
-    }
-    return false;
-}
-
 // Compares two spell specifics
 inline bool IsSpellSpecificIdentical(SpellSpecific specific, SpellSpecific specific2)
 {
@@ -2496,7 +2447,7 @@ class SpellMgr
                 case 25661: // Dirge's Kickin' Chimaerok Chops
                 case 46687: // Juicy Bear Burger
                 // Alcohol: instant application, no attribute
-                case 5020:  // Stormstout
+                case 5020:  // Stormstout - doesnt stack with trogg ale, raptor punch, thunderbrew lager, rumsey rum, halaani whiskey, gordok green grog, stormstout
                 case 5021:  // Trogg Ale
                 case 5257:  // Thunderbrew Lager
                 case 5909:  // Watered-down Beer
@@ -2504,7 +2455,7 @@ class SpellMgr
                 case 8553:  // Barleybrew Scalder
                 case 20875: // Rumsey Rum
                 case 22789: // Gordok Green Grog
-                case 22790: // Kreeg's Stout Beatdown
+                case 22790: // Kreeg's Stout Beatdown - stacks until wotlk
                 case 25037: // Rumsey Rum Light
                 case 25722: // Rumsey Rum Dark
                 case 25804: // Rumsey Rum Black Label

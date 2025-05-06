@@ -26,6 +26,11 @@ SpellStacker& SpellStacker::Instance()
     return spellStacker;
 }
 
+void SpellStacker::LoadSpellGroups()
+{
+
+}
+
 bool SpellStacker::IsStackableAuraEffect(SpellEntry const* entry, SpellEntry const* entry2, SpellEffectIndex effIdx, Unit* target) const
 {
     const uint32 aura = entry->EffectApplyAuraName[effIdx];
@@ -50,9 +55,15 @@ bool SpellStacker::IsStackableAuraEffect(SpellEntry const* entry, SpellEntry con
     if (entry->SpellFamilyName == SPELLFAMILY_POTION || entry2->SpellFamilyName == SPELLFAMILY_POTION)
         return true;
 
-    // Special rule for food buffs
-    if (GetSpellSpecific(entry->Id) == SPELL_WELL_FED && GetSpellSpecific(entry2->Id) != SPELL_WELL_FED)
-        return true;
+    // Special rule for food buffs - TODO: Remove one day
+    auto firstItr = m_spellGroupSpellData.find(entry->Id);
+    auto secondItr = m_spellGroupSpellData.find(entry2->Id);
+    if (firstItr != m_spellGroupSpellData.end() && secondItr != m_spellGroupSpellData.end())
+    {
+        int wellFedIndex = 1 << (((int)SpellGroupId::WELL_FED) - 1);
+        if ((firstItr->second.mask & wellFedIndex) != 0 && (secondItr->second.mask & wellFedIndex) == 0)
+            return true;
+    }
 
     // Short alias
     const bool positive = (IsPositiveEffect(entry, effIdx));
