@@ -357,18 +357,6 @@ WeaponAttackType GetWeaponAttackType(SpellEntry const* spellInfo)
     }
 }
 
-SpellSpecific GetSpellSpecific(uint32 spellId)
-{
-    SpellEntry const* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
-    if (!spellInfo)
-        return SPELL_NORMAL;
-
-    if (SpellSpecific food = sSpellMgr.GetSpellFoodSpecific(spellInfo))
-        return food;
-
-    return SPELL_NORMAL;
-}
-
 bool IsExplicitPositiveTarget(uint32 targetA)
 {
     // positive targets that in target selection code expect target in m_targets, so not that auto-select target by spell data by m_caster and etc

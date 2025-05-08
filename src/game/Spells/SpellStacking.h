@@ -27,9 +27,12 @@ class Unit;
 
 enum class SpellGroupRule
 {
-    UNIQUE,
-    UNIQUE_PER_CASTER,
+    UNIQUE              = 0x1,
+    UNIQUE_PER_CASTER   = 0x2,
+    MAX                 = 0x4
 };
+
+DEFINE_ENUM_FLAG(SpellGroupRule);
 
 enum class SpellGroupId
 {
@@ -49,6 +52,8 @@ struct SpellGroupSpellData
 {
     uint64 mask;
     SpellGroupRule rule;
+
+    SpellGroupSpellData() : mask(0), rule((SpellGroupRule)0) {}
 };
 
 class SpellStacker
@@ -65,6 +70,8 @@ class SpellStacker
         bool IsStackableSpell(SpellEntry const* entry, SpellEntry const* entry2, Unit* target) const;
         bool IsSpellStackableWithSpell(SpellEntry const* entry1, SpellEntry const* entry2, Unit* target) const;
         bool IsSpellStackableWithSpellForDifferentCasters(SpellEntry const* entry1, SpellEntry const* entry2, bool isSameChain, Unit* target) const;
+
+        SpellGroupSpellData const* GetSpellGroupDataForSpell(uint32 spellId) const;
 
     private:
         std::map<uint32, SpellGroup> m_spellGroups;

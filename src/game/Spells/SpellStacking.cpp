@@ -28,7 +28,89 @@ SpellStacker& SpellStacker::Instance()
 
 void SpellStacker::LoadSpellGroups()
 {
+    m_spellGroups.clear();
+    m_spellGroupSpellData.clear();
 
+    uint32 count = 0;
+
+    auto queryResult = WorldDatabase.Query("SELECT Id, Rule, Name FROM spell_group");
+
+    if (queryResult)
+    {
+        BarGoLink bar(queryResult->GetRowCount());
+        do
+        {
+            Field* fields = queryResult->Fetch();
+
+            bar.step();
+
+            SpellGroup group;
+            group.Id = fields[0].GetUInt32();
+            group.rule = (SpellGroupRule)fields[1].GetUInt32();
+            group.name = fields[2].GetCppString();
+
+            if (SpellGroupRule::MAX <= group.rule)
+            {
+                sLog.outErrorDb("spell_group (Id: %u) has invalid rule %u.", group.Id, group.rule);
+                continue;
+            }
+
+            m_spellGroups.emplace(group.Id, group);
+        }
+        while (queryResult->NextRow());
+    }
+
+    sLog.outString(">> Loaded %u spell groups", count);
+    sLog.outString();
+
+    count = 0;
+
+    queryResult = WorldDatabase.Query("SELECT Id, SpellId FROM spell_group_spell");
+
+    if (queryResult)
+    {
+        BarGoLink bar(queryResult->GetRowCount());
+        do
+        {
+            Field* fields = queryResult->Fetch();
+
+            bar.step();
+
+            uint32 groupId = fields[0].GetUInt32();
+            uint32 spellId = fields[1].GetUInt32();
+
+            auto existingItr = m_spellGroups.find(groupId);
+            if (existingItr == m_spellGroups.end())
+            {
+                sLog.outErrorDb("`spell_group_spell` group id %u does not exist", groupId);
+                continue;
+            }
+
+            SpellEntry const* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(spellId);
+            if (!spellInfo)
+            {
+                sLog.outErrorDb("Spell (ID:%u) listed in `spell_group_spell` group id %u does not exist.", spellId, groupId);
+                continue;
+            }
+
+            existingItr->second.spellIds.push_back(spellId);
+        }
+        while (queryResult->NextRow());
+    }
+
+    for (auto& group : m_spellGroups)
+    {
+        for (uint32 spellId : group.second.spellIds)
+        {
+            auto& maskData = m_spellGroupSpellData[spellId];
+            maskData.mask |= (1 << (group.second.Id - 1)); // start from Id 1
+            if (maskData.rule == (SpellGroupRule)0)
+                maskData.rule = group.second.rule;
+        }
+    }
+
+    sLog.outString(">> Loaded %u spell group spells", count);
+    sLog.outString();
 }
 
 bool SpellStacker::IsStackableAuraEffect(SpellEntry const* entry, SpellEntry const* entry2, SpellEffectIndex effIdx, Unit* target) const
@@ -360,4 +442,13 @@ bool SpellStacker::IsSpellStackableWithSpellForDifferentCasters(SpellEntry const
 
     // By default, check formal aura holder stacking rules
     return IsSpellStackableWithSpell(entry1, entry2, target);
+}
+
+SpellGroupSpellData const* SpellStacker::GetSpellGroupDataForSpell(uint32 spellId) const
+{
+    auto itr = m_spellGroupSpellData.find(spellId);
+    if (itr == m_spellGroupSpellData.end())
+        return nullptr;
+    
+    return &(itr->second);
 }

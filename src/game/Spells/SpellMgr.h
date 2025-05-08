@@ -51,36 +51,6 @@ enum SpellCategories
     SPELLCATEGORY_DEVOUR_MAGIC        = 12
 };
 
-// Spell clasification
-enum SpellSpecific
-{
-    SPELL_NORMAL,
-    SPELL_FOOD,
-    SPELL_DRINK,
-    SPELL_FOOD_AND_DRINK,
-    SPELL_WELL_FED,
-    SPELL_FLASK_ELIXIR,
-    SPELL_SEAL,
-    SPELL_JUDGEMENT,
-    SPELL_BLESSING,
-    SPELL_AURA,
-    SPELL_STING,
-    SPELL_ASPECT,
-    SPELL_TRACKER,
-    SPELL_CURSE,
-    SPELL_MAGE_ARMOR,
-    SPELL_WARLOCK_ARMOR,
-    SPELL_ELEMENTAL_SHIELD,
-    SPELL_BUFF_CASTER_POWER,
-    // TBC+ specifics:
-    SPELL_BATTLE_ELIXIR,
-    SPELL_GUARDIAN_ELIXIR,
-    SPELL_SHOUT_BUFF,
-    SPELL_CORRUPTION,
-};
-
-SpellSpecific GetSpellSpecific(uint32 spellId);
-
 // Different spell properties
 inline float GetSpellRadius(SpellRadiusEntry const* radius) { return (radius ? radius->Radius : 0); }
 uint32 GetSpellCastTime(SpellEntry const* spellInfo, WorldObject* caster, Spell* spell = nullptr, bool consume = false);
@@ -1925,40 +1895,6 @@ inline bool IsGroupRestrictedBuff(SpellEntry const* spellInfo)
     return false;
 }
 
-// Compares two spell specifics
-inline bool IsSpellSpecificIdentical(SpellSpecific specific, SpellSpecific specific2)
-{
-    if (specific == specific2)
-        return true;
-    // Compare combined specifics
-    switch (int32(specific))
-    {
-        case SPELL_BATTLE_ELIXIR:
-            return specific2 == SPELL_BATTLE_ELIXIR ||
-                   specific2 == SPELL_FLASK_ELIXIR;
-        case SPELL_GUARDIAN_ELIXIR:
-            return specific2 == SPELL_GUARDIAN_ELIXIR ||
-                   specific2 == SPELL_FLASK_ELIXIR;
-        case SPELL_FLASK_ELIXIR:
-            return specific2 == SPELL_BATTLE_ELIXIR ||
-                   specific2 == SPELL_GUARDIAN_ELIXIR ||
-                   specific2 == SPELL_FLASK_ELIXIR;
-        case SPELL_FOOD:
-            return specific2 == SPELL_FOOD ||
-                   specific2 == SPELL_FOOD_AND_DRINK;
-        case SPELL_DRINK:
-            return specific2 == SPELL_DRINK ||
-                   specific2 == SPELL_FOOD_AND_DRINK;
-        case SPELL_FOOD_AND_DRINK:
-            return specific2 == SPELL_FOOD ||
-                   specific2 == SPELL_DRINK ||
-                   specific2 == SPELL_FOOD_AND_DRINK;
-        default:
-            break;
-    }
-    return false;
-}
-
 inline bool IsSimilarAuraEffect(SpellEntry const* entry, uint32 effect, SpellEntry const* entry2, uint32 effect2)
 {
     return (entry2->EffectApplyAuraName[effect2] && entry->EffectApplyAuraName[effect] &&
@@ -2374,95 +2310,6 @@ class SpellMgr
                 return 0x0;
 
             return itr->second;
-        }
-
-        SpellSpecific GetSpellElixirSpecific(uint32 spellid) const
-        {
-            uint32 mask = GetSpellElixirMask(spellid);
-            if ((mask & ELIXIR_FLASK_MASK) == ELIXIR_FLASK_MASK)
-                return SPELL_FLASK_ELIXIR;
-            if (mask & ELIXIR_BATTLE_MASK)
-                return SPELL_BATTLE_ELIXIR;
-            if (mask & ELIXIR_GUARDIAN_MASK)
-                return SPELL_GUARDIAN_ELIXIR;
-            if (mask & ELIXIR_WELL_FED)
-                return SPELL_WELL_FED;
-            return SPELL_NORMAL;
-        }
-
-        SpellSpecific GetSpellFoodSpecific(const SpellEntry* entry) const
-        {
-            if (!entry)
-                return SPELL_NORMAL;
-            // Food / Drinks (mostly)
-            if (entry->AuraInterruptFlags & AURA_INTERRUPT_FLAG_STANDING_CANCELS)
-            {
-                if (entry->SpellFamilyName == SPELLFAMILY_GENERIC)
-                {
-                    bool food = false;
-                    bool drink = false;
-                    for (int i = 0; i < MAX_EFFECT_INDEX; ++i)
-                    {
-                        switch (entry->EffectApplyAuraName[i])
-                        {
-                            // Food
-                            case SPELL_AURA_MOD_REGEN:
-                            case SPELL_AURA_OBS_MOD_HEALTH:
-                                food = true;
-                                break;
-                            // Drink
-                            case SPELL_AURA_MOD_POWER_REGEN:
-                            case SPELL_AURA_OBS_MOD_MANA:
-                                drink = true;
-                                break;
-                            default:
-                                break;
-                        }
-                    }
-
-                    if (food && drink)
-                        return SPELL_FOOD_AND_DRINK;
-                    else if (food)
-                        return SPELL_FOOD;
-                    else if (drink)
-                        return SPELL_DRINK;
-                }
-            }
-            // Well Fed buffs (must be exclusive with Food / Drink replenishment effects, or else Well Fed will cause them to be removed)
-            else if (entry->HasAttribute(SPELL_ATTR_EX2_RETAIN_ITEM_CAST))
-                return SPELL_WELL_FED;
-
-            // Spells without attributes, but classified as well fed
-            // Multi-family check
-            switch (entry->Id)
-            {
-                // Food buffs without attribute: instantly applied ones
-                // Parent spell contains the attribute for them (TODO: add a query for parent spell in the future?)
-                case 18125: // Blessed Sunfruit
-                case 18141: // Blessed Sunfruit Juice
-                case 18191: // Windblossom Berries
-                case 18192: // Grilled Squid
-                case 18193: // Marsh Lichen
-                case 22730: // Runn Tum Tuber Surprise
-                case 25661: // Dirge's Kickin' Chimaerok Chops
-                case 46687: // Juicy Bear Burger
-                // Alcohol: instant application, no attribute
-                case 5020:  // Stormstout - doesnt stack with trogg ale, raptor punch, thunderbrew lager, rumsey rum, halaani whiskey, gordok green grog, stormstout
-                case 5021:  // Trogg Ale
-                case 5257:  // Thunderbrew Lager
-                case 5909:  // Watered-down Beer
-                case 6114:  // Raptor Punch
-                case 8553:  // Barleybrew Scalder
-                case 20875: // Rumsey Rum
-                case 22789: // Gordok Green Grog
-                case 22790: // Kreeg's Stout Beatdown - stacks until wotlk
-                case 25037: // Rumsey Rum Light
-                case 25722: // Rumsey Rum Dark
-                case 25804: // Rumsey Rum Black Label
-                case 37058: // Halaani Whiskey
-                    return SPELL_WELL_FED;
-            }
-            return SPELL_NORMAL;
         }
 
         // Reverse engineered from binary: do not alter
