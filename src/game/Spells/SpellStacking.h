@@ -27,12 +27,10 @@ class Unit;
 
 enum class SpellGroupRule
 {
-    UNIQUE              = 0x1,
-    UNIQUE_PER_CASTER   = 0x2,
-    MAX                 = 0x4
+    UNIQUE              = 1,
+    UNIQUE_PER_CASTER   = 2,
+    MAX                 = 3
 };
-
-DEFINE_ENUM_FLAG(SpellGroupRule);
 
 enum class SpellGroupId
 {

@@ -103,7 +103,7 @@ void SpellStacker::LoadSpellGroups()
         for (uint32 spellId : group.second.spellIds)
         {
             auto& maskData = m_spellGroupSpellData[spellId];
-            maskData.mask |= (1 << (group.second.Id - 1)); // start from Id 1
+            maskData.mask |= (uint64(1) << (group.second.Id - 1)); // start from Id 1
             if (maskData.rule == (SpellGroupRule)0)
                 maskData.rule = group.second.rule;
         }
@@ -172,19 +172,11 @@ bool SpellStacker::IsStackableAuraEffect(SpellEntry const* entry, SpellEntry con
                 break;
             switch (entry->SpellFamilyName)
             {
-                case SPELLFAMILY_GENERIC:
-                    if (entry->SpellIconID == 92 && entry->SpellVisual == 99 && icon && visual)
-                        return false; // Soulstone Resurrection
-                    if (entry->Id == 31944) // Archimonde - Doomfire
-                        return false;
-                    break;
                 case SPELLFAMILY_SHAMAN:
                     if (entry->IsFitToFamilyMask(uint64(0x200)) && multirank)
                         return true; // Shaman Reincarnation (Passive) and Twisting Nether
                     break;
                 case SPELLFAMILY_DRUID:
-                    if (entry->IsFitToFamilyMask(uint64(0x44000000000)) && entry2->IsFitToFamilyMask(uint64(0x44000000000)))
-                        return false; // Mangle (Cat) & Mangle (Bear)
                     if (entry->IsFitToFamilyMask(uint64(0x80)) && multirank)
                         return true; // Tranquility
                     if (entry->IsFitToFamilyMask(uint64(0x01000000000)))
@@ -202,13 +194,6 @@ bool SpellStacker::IsStackableAuraEffect(SpellEntry const* entry, SpellEntry con
         case SPELL_AURA_PERIODIC_DAMAGE:
         case SPELL_AURA_PERIODIC_DAMAGE_PERCENT:
         case SPELL_AURA_POWER_BURN_MANA:
-            if (entry->Id == 38575) // Vashj - Toxic Spores
-                return false;
-            if (entry->Id == 45402) // Felmyst - Demonic Vapor
-                return false;
-            if (entry->Id == 45032 || entry->Id == 45034) // Kalecgos - Curse of boundless agony
-                if (entry2->Id == 45032 || entry2->Id == 45034)
-                    return false;
             return true;
             break;
             // HoT
@@ -263,14 +248,10 @@ bool SpellStacker::IsStackableAuraEffect(SpellEntry const* entry, SpellEntry con
         // By default base stats cannot stack if they're similar
         case SPELL_AURA_MOD_STAT:
         {
-            if (entry->Id == 8733 && entry2->Id == 8733)    // Blessing of Blackfathom - shouldnt stack with itself
-                return false;
             if (entry->Id == 5320 || entry2->Id == 5320) // Echeyakee's Grace - stacks with everything
                 return true;
             if (entry->Id == 15366 || entry2->Id == 15366) // Songflower Serenade - stacks with everything
                 return true;
-            if (entry->Id == 24425 && entry2->Id == 24425) // Spirit of Zandalar - shouldnt stack with itself
-                return false;
             if (entry->EffectMiscValue[effIdx] != entry2->EffectMiscValue[similar])
                 break;
             if (positive)
@@ -321,8 +302,6 @@ bool SpellStacker::IsStackableAuraEffect(SpellEntry const* entry, SpellEntry con
             nonmui = true;
             break;
         case SPELL_AURA_MOD_INCREASE_HEALTH:
-            if (entry->Id == 26522 && entry2->Id == 26522) // Lunar Fortune
-                return false;
             break;
         case SPELL_AURA_MOD_HEALING_DONE:
         case SPELL_AURA_MOD_HEALING_PCT:
@@ -334,8 +313,6 @@ bool SpellStacker::IsStackableAuraEffect(SpellEntry const* entry, SpellEntry con
         case SPELL_AURA_MOD_RANGED_HASTE:
         case SPELL_AURA_MOD_DAMAGE_DONE:
         case SPELL_AURA_MOD_DAMAGE_PERCENT_DONE: // Ferocious Inspiration, Shadow Embrace
-            if (entry->Id == 29521 && entry2->Id == 29521) // Dance Vibe
-                return false;
             if (positive)
                 return true;
             nonmui = true;
@@ -381,8 +358,6 @@ bool SpellStacker::IsStackableAuraEffect(SpellEntry const* entry, SpellEntry con
         case SPELL_AURA_MOD_DETECT_RANGE: // Never stack
             return false;
         case SPELL_AURA_PERIODIC_ENERGIZE:
-            if (entry->Id == 45860 && entry2->Id == 45860) // Breath: Revitalize
-                return false;
             break;
     }
     if (nonmui && instance && !IsChanneledSpell(entry) && !IsChanneledSpell(entry2))

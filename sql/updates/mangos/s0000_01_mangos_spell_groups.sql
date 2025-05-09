@@ -19,27 +19,30 @@ CREATE TABLE `spell_group_spell`(
 -- SELECT CONCAT('(3,',entry,'), -- ',b.SpellName) FROM spell_elixir a join spell_template b on a.entry=b.Id WHERE Mask&0x10 != 0;
 
 INSERT INTO spell_group(Id, Rule, Name) VALUES
-(1,0,'Food'),
-(2,0,'Drink'),
-(3,0,'Well Fed'),
-(4,0,'Flask Elixir'),
-(5,0,'Seal'),
-(6,1,'Judgement'),
-(7,1,'Blessing'),
-(8,1,'Aura'),
-(9,1,'Sting'),
-(10,1,'Aspect'),
-(11,0,'Tracker'),
-(12,1,'Curse'),
-(13,0,'Mage Armor'),
-(14,0,'Warlock Armor'),
-(15,0,'Elemental Shield'),
-(16,0,'Power Casting Buff'),
-(17,0,'Battle Elixir TBC+'),
-(18,0,'Guardian Elixir TBC+'),
-(19,1,'Shout TBC+'),
-(20,1,'Corruption TBC+'),
-(21,1,'Alcohol Vanilla-only');
+(1,1,'Food'),
+(2,1,'Drink'),
+(3,1,'Well Fed'),
+(4,1,'Flask Elixir'),
+(5,1,'Seal'),
+(6,2,'Judgement'),
+(7,2,'Blessing'),
+(8,2,'Aura'),
+(9,2,'Sting'),
+(10,2,'Aspect'),
+(11,1,'Tracker'),
+(12,2,'Curse'),
+(13,1,'Mage Armor'),
+(14,1,'Warlock Armor'),
+(15,1,'Elemental Shield'),
+(16,1,'Power Casting Buff'),
+(17,1,'Battle Elixir TBC+'),
+(18,1,'Guardian Elixir TBC+'),
+(19,2,'Shout TBC+'),
+(20,2,'Corruption TBC+'),
+(21,2,'Alcohol Vanilla-only'),
+(22,1,'Curse of Boundless Agony'),
+(23,1,'Soulstone Resurrection'),
+(24,1,'Mangle');
 
 INSERT INTO spell_group_spell(Id, SpellId) VALUES
 -- Food
@@ -687,5 +690,25 @@ INSERT INTO spell_group_spell(Id, SpellId) VALUES
 (20,11671),
 (20,11672),
 (20,25311),
-(20,27216);
+(20,27216),
+
+-- Curse of Boundless Agony
+(22,45032),
+(22,45034),
+
+-- Soulstone Resurrection
+(23,20707),
+(23,20762),
+(23,20763),
+(23,20764),
+(23,20765),
+(23,27239),
+
+-- Mangle
+(24,33876),
+(24,33878),
+(24,33982),
+(24,33983),
+(24,33986),
+(24,33987);
 
