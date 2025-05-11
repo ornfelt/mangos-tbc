@@ -22,6 +22,8 @@
 #include "Server/DBCEnums.h"
 #include "Platform/Define.h"
 #include <map>
+#include <vector>
+#include <string>
 
 struct SpellEntry;
 class Unit;
