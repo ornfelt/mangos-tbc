@@ -20,6 +20,7 @@
 #define _SPELLSTACKING_H
 
 #include "Server/DBCEnums.h"
+#include "Platform/Define.h"
 #include <map>
 
 struct SpellEntry;

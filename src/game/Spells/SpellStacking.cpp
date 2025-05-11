@@ -20,6 +20,8 @@
 #include "Server/DBCStructure.h"
 #include "Entities/Unit.h"
 #include "Database/DatabaseEnv.h"
+#include "Spells/SpellMgr.h"
+#include "Server/SQLStorages.h"
 
 SpellStacker& SpellStacker::Instance()
 {
