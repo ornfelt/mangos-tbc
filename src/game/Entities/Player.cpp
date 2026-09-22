@@ -5063,7 +5063,7 @@ void Player::LeaveLFGChannel()
     }
 }
 
-void Player::UpdateDefense(uint32 procEx)
+void Player::UpdateDefense(uint32 /*procEx*/)
 {
     uint32 defense_skill_gain = sWorld.getConfig(CONFIG_UINT32_SKILL_GAIN_DEFENSE);
 
@@ -11136,7 +11136,7 @@ void Player::DestroyItemCount(Item& item, uint32& count, bool update)
         item.SetCount(item.GetCount() - count);
         count = 0;
         if (IsInWorld() && update)
-            GetMap()->AddUpdateCreateObject(&item);
+            GetMap()->AddUpdateObject(&item);
         item.SetState(ITEM_CHANGED, this);
     }
 }
