@@ -14,6 +14,7 @@ option(BUILD_GIT_ID                         "Build git_id"                      
 option(BUILD_DOCS                           "Build documentation with doxygen"          OFF)
 option(CMAKE_INTERPROCEDURAL_OPTIMIZATION   "Enable link-time optimizations"            OFF)
 option(BUILD_DEPRECATED_PLAYERBOT           "Build previous version of Playerbot mod"   OFF)
+option(USE_CUSTOM_CHANGES                   "Enable custom changes (USE_CUSTOM_CHANGES)" ON)
 set(DEV_BINARY_DIR ${CMAKE_BINARY_DIR} CACHE STRING "Executable directory on Windows")
 
 # TODO: options that should be checked/created:
@@ -42,6 +43,7 @@ message(STATUS
     BUILD_DOCS              Build documentation with doxygen
     CMAKE_INTERPROCEDURAL_OPTIMIZATION Enable link-time optimizations
     BUILD_DEPRECATED_PLAYERBOT         Build Playerbot mod (deprecated)
+    USE_CUSTOM_CHANGES      Enable custom changes (e.g. playerbots fill BG / skirmish queues)
     BUILD_SCRIPTDEV         Build scriptdev. (Disable it to speedup build
                                 in dev mode by not including scripts)
 

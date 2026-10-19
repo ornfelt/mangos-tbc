@@ -73,6 +73,12 @@ else()
   message(STATUS "Build Playerbots      : No  (default)")
 endif()
 
+if(USE_CUSTOM_CHANGES)
+  message(STATUS "Use custom changes    : Yes (default)")
+else()
+  message(STATUS "Use custom changes    : No")
+endif()
+
 if(BUILD_EXTRACTORS)
   message(STATUS "Build extractors      : Yes")
 else()

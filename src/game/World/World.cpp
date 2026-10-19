@@ -81,6 +81,9 @@
 #include "ahbot/AhBot.h"
 #include "playerbot/PlayerbotAIConfig.h"
 #include "playerbot/RandomPlayerbotMgr.h"
+#ifdef USE_CUSTOM_CHANGES
+#include "Custom/BattleGroundBotFill.h"
+#endif
 #endif
 
 #include <algorithm>
@@ -1658,6 +1661,9 @@ void World::Update(uint32 diff)
 #endif
     sRandomPlayerbotMgr.UpdateAI(diff);
     sRandomPlayerbotMgr.UpdateSessions(diff);
+#ifdef USE_CUSTOM_CHANGES
+    sBattleGroundBotFill.Update(diff);
+#endif
 #endif
 
     /// <li> Handle session updates
