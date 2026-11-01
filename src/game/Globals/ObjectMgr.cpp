@@ -3009,8 +3009,13 @@ void ObjectMgr::LoadItemPrototypes()
 
             if (proto->DisplayInfoID != dbcitem->DisplayId)
             {
+#ifdef USE_CUSTOM_CHANGES
+                // custom: keep item_template's display id (a changed item look, e.g. wow_transmog), not Item.dbc's
+                sLog.outErrorDb("Item (Entry: %u) not correct %u display id, must be %u (still using DB value).", i, proto->DisplayInfoID, dbcitem->DisplayId);
+#else
                 sLog.outErrorDb("Item (Entry: %u) not correct %u display id, must be %u (using it).", i, proto->DisplayInfoID, dbcitem->DisplayId);
                 const_cast<ItemPrototype*>(proto)->DisplayInfoID = dbcitem->DisplayId;
+#endif
             }
             if (proto->Sheath != dbcitem->Sheath)
             {

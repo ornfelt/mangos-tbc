@@ -43,7 +43,8 @@ message(STATUS
     BUILD_DOCS              Build documentation with doxygen
     CMAKE_INTERPROCEDURAL_OPTIMIZATION Enable link-time optimizations
     BUILD_DEPRECATED_PLAYERBOT         Build Playerbot mod (deprecated)
-    USE_CUSTOM_CHANGES      Enable custom changes (e.g. playerbots fill BG / skirmish queues)
+    USE_CUSTOM_CHANGES      Enable custom changes (e.g. playerbots fill BG / skirmish queues,
+                            item_template display ids kept over Item.dbc's)
     BUILD_SCRIPTDEV         Build scriptdev. (Disable it to speedup build
                                 in dev mode by not including scripts)
 
