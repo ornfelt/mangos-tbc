@@ -240,7 +240,7 @@ void MovementInfo::Read(ByteBuffer& data)
         data >> t_time;
     }
 
-    if (HasMovementFlag(MovementFlags(MOVEFLAG_SWIMMING | MOVEFLAG_FLYING2)))
+    if (HasMovementFlag(MovementFlags(MOVEFLAG_SWIMMING | MOVEFLAG_FLYING)))
     {
         data >> s_pitch;
     }
@@ -288,7 +288,7 @@ void MovementInfo::Write(ByteBuffer& data) const
         data << t_time;
     }
 
-    if (HasMovementFlag(MovementFlags(MOVEFLAG_SWIMMING | MOVEFLAG_FLYING2)))
+    if (HasMovementFlag(MovementFlags(MOVEFLAG_SWIMMING | MOVEFLAG_FLYING)))
     {
         data << s_pitch;
     }
@@ -660,14 +660,6 @@ void Unit::EvadeTimerExpired()
     getThreatManager().SetTargetSuppressed(GetVictim());
 }
 
-enum SwingErrors
-{
-    SWING_ERROR_NOT_IN_RANGE,
-    SWING_ERROR_TARGET_NOT_ALIVE,
-    SWING_ERROR_BAD_FACING,
-    SWING_ERROR_CANT_ATTACK_TARGET,
-};
-
 bool Unit::UpdateMeleeAttackingState()
 {
     Unit* victim = GetVictim();
@@ -685,7 +677,7 @@ bool Unit::UpdateMeleeAttackingState()
     if (!isAttackReady(BASE_ATTACK) && !(isAttackReady(OFF_ATTACK) && hasOffhandWeaponForAttack()))
         return false;
 
-    uint8 swingError = 0;
+    uint8 swingError = SWING_ERROR_NONE;
     if (!CanReachWithMeleeAttack(victim))
         swingError = SWING_ERROR_NOT_IN_RANGE;
     else if (!HasInArc(victim, 2 * M_PI_F / 3))
@@ -721,8 +713,11 @@ bool Unit::UpdateMeleeAttackingState()
 
     if (swingError)
     {
-        setAttackTimer(BASE_ATTACK, 100);
-        setAttackTimer(OFF_ATTACK, 100);
+        // delaying a weapon that is not ready would make it ready sooner
+        if (isAttackReady(BASE_ATTACK))
+            setAttackTimer(BASE_ATTACK, 100);
+        if (hasOffhandWeaponForAttack() && isAttackReady(OFF_ATTACK))
+            setAttackTimer(OFF_ATTACK, 100);
     }
 
     Player* player = IsClientControlled() ? const_cast<Player*>(GetClientControlling()) : nullptr;
@@ -2989,14 +2984,17 @@ void Unit::SendMeleeAttackStart(const Unit& victim) const
     DETAIL_FILTER_LOG(LOG_FILTER_COMBAT, "WORLD: Sent SMSG_ATTACKSTART");
 }
 
-void Unit::SendMeleeAttackStop(const Unit& victim) const
+void Unit::SendMeleeAttackStop(Unit const* victim) const
 {
     WorldPacket data(SMSG_ATTACKSTOP, (4 + 16));            // we guess size
     data << GetPackGUID();
-    data << victim.GetPackGUID();
+    if (victim)
+        data << victim->GetPackGUID();
+    else
+        data << PackedGuid();
     data << uint32(IsDead() ? 1 : 0);
     SendMessageToSet(data, true);
-    DETAIL_FILTER_LOG(LOG_FILTER_COMBAT, "%s stopped attacking %s", GetGuidStr().c_str(), victim.GetGuidStr().c_str());
+    DETAIL_FILTER_LOG(LOG_FILTER_COMBAT, "%s stopped attacking %s", GetGuidStr().c_str(), victim ? victim->GetGuidStr().c_str() : "nothing");
 }
 
 SpellMissInfo Unit::MeleeSpellHitResult(Unit* pVictim, SpellEntry const* spellInfo, uint32* heartbeatResistChance/* = nullptr*/)
@@ -6810,7 +6808,7 @@ void Unit::MeleeAttackStop(Unit* victim)
         clearUnitState(UNIT_STAT_MELEE_ATTACKING);
         InterruptSpell(CURRENT_MELEE_SPELL);
         if (victim)
-            SendMeleeAttackStop(*victim);
+            SendMeleeAttackStop(victim);
     }
 }
 
@@ -11743,7 +11741,7 @@ Unit* Unit::TakePossessOf(SpellEntry const* spellEntry, SummonPropertiesEntry co
     if (x == 0.0f && y == 0.0f && z == 0.0f)
         pos = CreatureCreatePos(this, GetOrientation(), CONTACT_DISTANCE, ang);
 
-    uint32 lowGuid = GetMap()->GenerateLocalLowGuid(cinfo->GetHighGuid());
+    uint32 lowGuid = GetMap()->GenerateLocalLowGuid(cinfo->GetHighGuid(), cinfo->Entry);
     if (!possessed->Create(lowGuid, lowGuid, pos, cinfo))
     {
         delete possessed;
@@ -13266,7 +13264,7 @@ void Unit::CharmCooldownInitialize(WorldPacket& data) const
             continue;
 
         if (cdData->IsPermanent())
-            catCDDuration |= 0x8000000;
+            catCDDuration |= 0x80000000;
 
         data << uint16(cdData->GetSpellId());
         data << uint16(cdData->GetCategory());              // spell category

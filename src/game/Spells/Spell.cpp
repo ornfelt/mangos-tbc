@@ -2547,9 +2547,37 @@ void Spell::SetTargetMap(SpellEffectIndex effIndex, uint32 targetMode, bool targ
             UnitList tempTargetUnitMap;
             SQLMultiStorage::SQLMSIteratorBounds<SpellTargetEntry> bounds = sSpellScriptTargetStorage.getBounds<SpellTargetEntry>(m_spellInfo->Id);
 
-            // fill real target list if no spell script target defined
-            FillAreaTargets(bounds.first != bounds.second ? tempTargetUnitMap : tempUnitList,
-                            radius, cone, PUSH_SRC_CENTER, SPELL_TARGETS_ALL);
+            bool stringIdFound = false;
+            if (radius == 50000.00f) // Testing hypothesis - enables fetching beyond grid search - confirmed for 33937
+            {
+                for (SQLMultiStorage::SQLMultiSIterator<SpellTargetEntry> i_spellST = bounds.first; i_spellST != bounds.second; ++i_spellST)
+                {
+                    SpellTargetEntry const* spellST = (*i_spellST);
+                    if (spellST->CanNotHitWithSpellEffect(effIndex))
+                        continue;
+
+                    switch (spellST->type)
+                    {
+                        case SPELL_TARGET_TYPE_STRING_ID:
+                        {
+                            stringIdFound = true;
+                            std::vector<Creature*> const* creatures = m_caster->GetMap()->GetCreatures(spellST->targetEntry);
+                            if (creatures)
+                            {
+                                for (Creature* creature : *creatures)
+                                    tempTargetUnitMap.push_back(creature);
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!stringIdFound) // old default to keep everything working
+            {
+                // fill real target list if no spell script target defined
+                FillAreaTargets(bounds.first != bounds.second ? tempTargetUnitMap : tempUnitList, radius, cone, PUSH_SRC_CENTER, SPELL_TARGETS_ALL);
+            }
 
             if (!tempTargetUnitMap.empty())
                 CheckSpellScriptTargets(bounds, tempTargetUnitMap, tempUnitList, effIndex);
@@ -3230,6 +3258,7 @@ void Spell::CheckSpellScriptTargets(SQLMultiStorage::SQLMSIteratorBounds<SpellTa
                     fail = target->GetDbGuid() != spellST->targetEntry;
                     break;
                 case SPELL_TARGET_TYPE_STRING_ID:
+                    fail = !target->HasStringId(spellST->targetEntry);
                     break;
                 default:
                     fail = target->GetEntry() != spellST->targetEntry;
@@ -3252,8 +3281,7 @@ void Spell::CheckSpellScriptTargets(SQLMultiStorage::SQLMSIteratorBounds<SpellTa
                     targetUnitMap.push_back(target);
                     break;
                 case SPELL_TARGET_TYPE_STRING_ID:
-                    if (target->HasStringId(spellST->targetEntry))
-                        targetUnitMap.push_back(target);
+                    targetUnitMap.push_back(target);
                     break;
                 default:
                     break;
@@ -5123,6 +5151,9 @@ SpellCastResult Spell::CheckCast(bool strict)
     {
         if (m_triggeredByAuraSpell)
             return SPELL_FAILED_DONT_REPORT;
+        // only SPELL_FAILED_NOT_READY lets the client release a cooldown it holds until an event
+        else if (m_CastItem && !m_spellInfo->HasAttribute(SPELL_ATTR_COOLDOWN_ON_EVENT))
+            return SPELL_FAILED_ITEM_NOT_READY;
         else
             return SPELL_FAILED_NOT_READY;
     }
