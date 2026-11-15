@@ -2486,13 +2486,14 @@ float Unit::CalcArmorReducedDamage(WorldObject* attacker, Unit* victim, const fl
     float armor = (float)victim->GetArmor();
 
     // Ignore enemy armor by armor penetration
-    if (attacker->IsUnit())
+    if (attacker && attacker->IsUnit())
         armor -= static_cast<Unit*>(attacker)->GetResistancePenetration(SPELL_SCHOOL_NORMAL);
 
     if (armor < 0.0f)
         armor = 0.0f;
 
-    float levelModifier = (float)attacker->GetLevel();
+    // periodic damage can tick after its caster is gone
+    float levelModifier = (float)(attacker ? attacker : victim)->GetLevel();
     if (levelModifier > 59)
         levelModifier = levelModifier + (4.5f * (levelModifier - 59));
 
