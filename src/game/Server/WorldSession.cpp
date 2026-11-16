@@ -46,11 +46,6 @@
 #include <cstdarg>
 #include <iostream>
 
-#ifdef BUILD_DEPRECATED_PLAYERBOT
-#include "PlayerBot/Base/PlayerbotMgr.h"
-#include "PlayerBot/Base/PlayerbotAI.h"
-#endif
-
 #ifdef ENABLE_PLAYERBOTS
 #include "playerbot/playerbot.h"
 #endif
@@ -104,7 +99,7 @@ WorldSession::WorldSession(uint32 id, WorldSocket* sock, AccountTypes sec, uint8
     _logoutTime(0), m_afkTime(0), m_playerSave(true), m_inQueue(false), m_playerLoading(false), m_kickSession(false), m_playerLogout(false), m_playerRecentlyLogout(false),
     m_sessionDbcLocale(sWorld.GetAvailableDbcLocale(locale)), m_sessionDbLocaleIndex(sObjectMgr.GetStorageLocaleIndexFor(locale)),
     m_latency(0), m_tutorialState(TUTORIALDATA_UNCHANGED),
-    m_timeSyncClockDeltaQueue(6), m_timeSyncClockDelta(0), m_pendingTimeSyncRequests(), m_timeSyncNextCounter(0), m_timeSyncTimer(0),
+    m_timeSyncClockDeltaQueue(6), m_timeSyncClockDelta(0), m_timeSyncRoundTrip(0), m_pendingTimeSyncRequests(), m_timeSyncNextCounter(0), m_timeSyncTimer(0),
     m_recruitingFriendId(recruitingFriend), m_isRecruiter(isARecruiter)
     {}
 
@@ -205,7 +200,7 @@ void WorldSession::SetExpansion(uint8 expansion)
 /// Send a packet to the client
 void WorldSession::SendPacket(WorldPacket const& packet, bool forcedSend /*= false*/) const
 {
-#if defined(BUILD_DEPRECATED_PLAYERBOT) || defined(ENABLE_PLAYERBOTS)
+#ifdef ENABLE_PLAYERBOTS
     // Send packet to bot AI
     if (GetPlayer())
     {
@@ -397,7 +392,7 @@ bool WorldSession::Update(uint32 /*diff*/)
 
                 // lag can cause STATUS_LOGGEDIN opcodes to arrive after the player started a transfer
 
-#if defined(BUILD_DEPRECATED_PLAYERBOT) || defined(ENABLE_PLAYERBOTS)
+#ifdef ENABLE_PLAYERBOTS
                 if (_player && _player->GetPlayerbotMgr())
                     _player->GetPlayerbotMgr()->HandleMasterIncomingPacket(*packet);
 #endif
@@ -451,31 +446,6 @@ bool WorldSession::Update(uint32 /*diff*/)
                 break;
         }
     }
-
-#ifdef BUILD_DEPRECATED_PLAYERBOT
-    // Process player bot packets
-    // The PlayerbotAI class adds to the packet queue to simulate a real player
-    // since Playerbots are known to the World obj only by its master's WorldSession object
-    // we need to process all master's bot's packets.
-    if (GetPlayer() && GetPlayer()->GetPlayerbotMgr())
-    {
-        for (PlayerBotMap::const_iterator itr = GetPlayer()->GetPlayerbotMgr()->GetPlayerBotsBegin();
-                itr != GetPlayer()->GetPlayerbotMgr()->GetPlayerBotsEnd(); ++itr)
-        {
-            Player* const botPlayer = itr->second;
-            WorldSession* const pBotWorldSession = botPlayer->GetSession();
-            while(!pBotWorldSession->m_recvQueue.empty())
-            {
-                auto const botpacket = std::move(pBotWorldSession->m_recvQueue.front());
-                pBotWorldSession->m_recvQueue.pop_front();
-
-                OpcodeHandler const& opHandle = opcodeTable[botpacket->GetOpcode()];
-                pBotWorldSession->ExecuteOpcode(opHandle, *botpacket);
-            }
-        }
-        GetPlayer()->GetPlayerbotMgr()->RemoveBots();
-    }
-#endif
 
 #ifdef ENABLE_PLAYERBOTS
     if (GetPlayer() && GetPlayer()->GetPlayerbotMgr())
@@ -641,12 +611,6 @@ void WorldSession::LogoutPlayer()
 
     if (_player)
     {
-#ifdef BUILD_DEPRECATED_PLAYERBOT
-        // Log out all player bots owned by this toon
-        if (_player->GetPlayerbotMgr())
-            _player->GetPlayerbotMgr()->LogoutAllBots(true);
-#endif
-
 #ifdef ENABLE_PLAYERBOTS
         if (_player->GetPlayerbotMgr() && (!_player->GetPlayerbotAI() || _player->GetPlayerbotAI()->IsRealPlayer()))
             _player->GetPlayerbotMgr()->LogoutAllBots();
@@ -713,20 +677,11 @@ void WorldSession::LogoutPlayer()
         // No SQL injection as AccountID is uint32
         static SqlStatementID id;
 
-#ifdef BUILD_DEPRECATED_PLAYERBOT
-        if (!_player->GetPlayerbotAI())
-        {
-            // Unmodded core code below
-            SqlStatement stmt = LoginDatabase.CreateStatement(id, "UPDATE account SET active_realm_id = ? WHERE id = ?");
-            stmt.PExecute(uint32(0), GetAccountId());
-        }
-#else
         // Scope for SqlStatement.
         {
             SqlStatement stmt = LoginDatabase.CreateStatement(id, "UPDATE account SET active_realm_id = ? WHERE id = ?");
             stmt.PExecute(uint32(0), GetAccountId());
         }
-#endif
 
         ///- If the player is in a guild, update the guild roster and broadcast a logout message to other guild members
         if (Guild* guild = sGuildMgr.GetGuildById(_player->GetGuildId()))
@@ -775,7 +730,7 @@ void WorldSession::LogoutPlayer()
         // GM ticket notification
         sTicketMgr.OnPlayerOnlineState(*_player, false);
 
-#if defined(BUILD_DEPRECATED_PLAYERBOT) || defined(ENABLE_PLAYERBOTS)
+#ifdef ENABLE_PLAYERBOTS
         // Remember player GUID for update SQL below
         uint32 guid = _player->GetGUIDLow();
 #endif
@@ -804,7 +759,7 @@ void WorldSession::LogoutPlayer()
 
         static SqlStatementID updChars;
 
-#if defined(BUILD_DEPRECATED_PLAYERBOT) || defined(ENABLE_PLAYERBOTS)
+#ifdef ENABLE_PLAYERBOTS
         // Set for only character instead of account id
         // Different characters can be alive as bots
         SqlStatement stmt = CharacterDatabase.CreateStatement(updChars, "UPDATE characters SET online = 0 WHERE guid = ?");
@@ -849,22 +804,7 @@ void WorldSession::KickPlayer(bool save, bool inPlace)
         return;
     }
 
-#ifdef BUILD_DEPRECATED_PLAYERBOT
-    if (!_player)
-        return;
-
-    if (_player->GetPlayerbotAI())
-    {
-        auto master = _player->GetPlayerbotAI()->GetMaster();
-        auto botMgr = master->GetPlayerbotMgr();
-        if (botMgr)
-            botMgr->LogoutPlayerBot(_player->GetObjectGuid());
-    }
-    else
-        LogoutRequest(time(nullptr) - 20, save);
-#else
     LogoutRequest(time(nullptr) - 20, save, true);
-#endif
 }
 
 void WorldSession::SendExpectedSpamRecords()
@@ -1216,8 +1156,78 @@ void WorldSession::SendTransferAborted(uint32 mapid, uint8 reason, uint8 arg) co
     SendPacket(data);
 }
 
+// Packets by which a client makes its own character act in the world. While another unit controls the character (charm,
+// mind control) its client has lost that control, so they are dropped and reported to the anticheat; spells and items
+// have their own check, which still lets through those that break the charm.
+static bool IsCharacterActionOpcode(Opcodes opcode)
+{
+    switch (opcode)
+    {
+        // melee
+        case CMSG_ATTACKSWING:
+        case CMSG_ATTACKSTOP:
+        // movement of the character itself, not the acknowledgements of the server orders
+        case MSG_MOVE_START_FORWARD:
+        case MSG_MOVE_START_BACKWARD:
+        case MSG_MOVE_STOP:
+        case MSG_MOVE_START_STRAFE_LEFT:
+        case MSG_MOVE_START_STRAFE_RIGHT:
+        case MSG_MOVE_STOP_STRAFE:
+        case MSG_MOVE_JUMP:
+        case MSG_MOVE_START_TURN_LEFT:
+        case MSG_MOVE_START_TURN_RIGHT:
+        case MSG_MOVE_STOP_TURN:
+        case MSG_MOVE_START_PITCH_UP:
+        case MSG_MOVE_START_PITCH_DOWN:
+        case MSG_MOVE_STOP_PITCH:
+        case MSG_MOVE_SET_RUN_MODE:
+        case MSG_MOVE_SET_WALK_MODE:
+        case MSG_MOVE_FALL_LAND:
+        case MSG_MOVE_START_SWIM:
+        case MSG_MOVE_STOP_SWIM:
+        case MSG_MOVE_SET_FACING:
+        case MSG_MOVE_SET_PITCH:
+        case MSG_MOVE_HEARTBEAT:
+        case CMSG_MOVE_FALL_RESET:
+        case CMSG_MOVE_SET_FLY:
+        case MSG_MOVE_START_ASCEND:
+        case MSG_MOVE_STOP_ASCEND:
+        case MSG_MOVE_START_DESCEND:
+        case CMSG_MOVE_CHNG_TRANSPORT:
+        // spells under way
+        case CMSG_CANCEL_CHANNELLING:
+        case CMSG_CANCEL_AUTO_REPEAT_SPELL:
+        // equipment
+        case CMSG_AUTOEQUIP_ITEM:
+        case CMSG_AUTOEQUIP_ITEM_SLOT:
+        case CMSG_SWAP_ITEM:
+        case CMSG_SWAP_INV_ITEM:
+        case CMSG_AUTOSTORE_BAG_ITEM:
+        case CMSG_SET_AMMO:
+        // pet commands
+        case CMSG_PET_ACTION:
+        case CMSG_PET_CAST_SPELL:
+        case CMSG_PET_STOP_ATTACK:
+        // actions in the world
+        case CMSG_GAMEOBJ_USE:
+        case CMSG_ACTIVATETAXI:
+        case CMSG_ACTIVATETAXIEXPRESS:
+        case CMSG_SUMMON_RESPONSE:
+        case CMSG_TOTEM_DESTROYED:
+            return true;
+        default:
+            return false;
+    }
+}
+
 void WorldSession::ExecuteOpcode(OpcodeHandler const& opHandle, WorldPacket& packet)
 {
+    if (_player && _player->HasCharmer() && IsCharacterActionOpcode(packet.GetOpcode()))
+    {
+        m_anticheat->CharmedAction(packet.GetOpcode());
+        return;
+    }
+
     // need prevent do internal far teleports in handlers because some handlers do lot steps
     // or call code that can do far teleports in some conditions unexpectedly for generic way work code
     if (_player)
@@ -1253,6 +1263,14 @@ void WorldSession::SendPlaySpellVisual(ObjectGuid guid, uint32 spellArtKit) cons
     data << guid;
     data << spellArtKit;                                    // index from SpellVisualKit.dbc
     SendPacket(data);
+}
+
+// Time a packet takes to reach the client: half the round trip of the clock synchronisation, or of the ping until the
+// synchronisation has measured one, at most one second
+uint32 WorldSession::GetOneWayDelay() const
+{
+    uint32 const roundTrip = m_timeSyncRoundTrip ? m_timeSyncRoundTrip.load() : m_latency.load();
+    return std::min(roundTrip / 2, uint32(1000));
 }
 
 void WorldSession::SynchronizeMovement(MovementInfo& movementInfo)
@@ -1349,15 +1367,6 @@ void WorldSession::AssignAnticheat(std::unique_ptr<SessionAnticheatInterface>&& 
 {
     m_anticheat = std::move(anticheat);
 }
-
-#ifdef BUILD_DEPRECATED_PLAYERBOT
-
-void WorldSession::SetNoAnticheat()
-{
-    m_anticheat.reset(new NullSessionAnticheat(this));
-}
-
-#endif
 
 void WorldSession::AfkStateChange(bool state)
 {

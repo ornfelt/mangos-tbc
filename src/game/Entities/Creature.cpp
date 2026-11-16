@@ -305,15 +305,7 @@ void Creature::RemoveCorpse(bool inPlace)
     GetMap()->CreatureRelocation(this, x, y, z, o);
 
     if (!IsUsingNewSpawningSystem()) // schedule out of range
-    {
-        auto& clientGuids = GetClientGuidsIAmAt();
-        for (auto& clientGuid : clientGuids)
-            if (Player* client = GetMap()->GetPlayer(clientGuid))
-                client->RemoveAtClient(this, true);
-        GetMap()->AddUpdateRemoveObject(GetClientGuidsIAmAt(), GetObjectGuid());
-        clientGuids.clear();
-        GetClientGuidsIAmAt().clear();
-    }
+        ScheduleOutOfRangeOnClientsIAmAt();
     else
         AddObjectToRemoveList();
 }
@@ -2265,7 +2257,9 @@ void Creature::CallAssistance(Unit* enemy)
 
 std::pair<bool, GuidVector> Creature::MarkCallAssistanceOnPull(Unit* enemy)
 {
-    bool stored = m_AlreadyCallAssistance;
+    if (m_AlreadyCallAssistance)
+        return {false, GuidVector()};
+
     SetNoCallAssistance(true);
 
     if (!CanCallForAssistance())
@@ -2282,7 +2276,7 @@ std::pair<bool, GuidVector> Creature::MarkCallAssistanceOnPull(Unit* enemy)
     GuidVector guids;
     for (Creature* creature : receiverList)
         guids.push_back(creature->GetObjectGuid());
-    return {stored, guids};
+    return {true, guids};
 }
 
 void Creature::CallAssistanceOnPull(Unit* enemy, GuidVector const& receiverList)

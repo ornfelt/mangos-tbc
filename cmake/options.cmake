@@ -13,7 +13,6 @@ option(BUILD_RECASTDEMOMOD                  "Build map/vmap/mmap viewer"        
 option(BUILD_GIT_ID                         "Build git_id"                              OFF)
 option(BUILD_DOCS                           "Build documentation with doxygen"          OFF)
 option(CMAKE_INTERPROCEDURAL_OPTIMIZATION   "Enable link-time optimizations"            OFF)
-option(BUILD_DEPRECATED_PLAYERBOT           "Build previous version of Playerbot mod"   OFF)
 option(USE_CUSTOM_CHANGES                   "Enable custom changes (USE_CUSTOM_CHANGES)" ON)
 set(DEV_BINARY_DIR ${CMAKE_BINARY_DIR} CACHE STRING "Executable directory on Windows")
 
@@ -42,7 +41,6 @@ message(STATUS
     BUILD_GIT_ID            Build git_id
     BUILD_DOCS              Build documentation with doxygen
     CMAKE_INTERPROCEDURAL_OPTIMIZATION Enable link-time optimizations
-    BUILD_DEPRECATED_PLAYERBOT         Build Playerbot mod (deprecated)
     USE_CUSTOM_CHANGES      Enable custom changes (e.g. playerbots fill BG / skirmish queues,
                             item_template display ids kept over Item.dbc's)
     BUILD_SCRIPTDEV         Build scriptdev. (Disable it to speedup build

@@ -33,9 +33,6 @@
 #include "Maps/MapPersistentStateMgr.h"
 #include "Spells/SpellAuras.h"
 #include "BattleGround/BattleGroundMgr.h"
-#ifdef BUILD_DEPRECATED_PLAYERBOT
-#include "PlayerBot/Base/PlayerbotMgr.h"
-#endif
 
 GroupMemberStatus GetGroupMemberStatus(const Player* member = nullptr)
 {
@@ -339,7 +336,7 @@ bool Group::AddMember(ObjectGuid guid, const char* name)
 
             if (Player* member = itr->getSource())
             {
-                if (player->HasAtClient(member))
+                if (player->IsCreatedAtClient(member))      // a creation not written yet carries the values
                 {
                     UpdateMask updateMask;
                     updateMask.SetCount(member->GetValuesCount());
@@ -348,7 +345,7 @@ bool Group::AddMember(ObjectGuid guid, const char* name)
                         member->BuildValuesUpdateBlockForPlayer(groupData, updateMask, player);
                 }
 
-                if (member->HasAtClient(player))
+                if (member->IsCreatedAtClient(player))
                 {
                     UpdateMask updateMask;
                     updateMask.SetCount(member->GetValuesCount());
@@ -381,11 +378,6 @@ bool Group::AddMember(ObjectGuid guid, const char* name)
 uint32 Group::RemoveMember(ObjectGuid guid, uint8 method)
 {
     Player* player = sObjectMgr.GetPlayer(guid);
-#ifdef BUILD_DEPRECATED_PLAYERBOT
-    // if master leaves group, all bots leave group
-    if (player && player->GetPlayerbotMgr())
-        player->GetPlayerbotMgr()->RemoveAllBotsFromGroup();
-#endif
 
     _updateMembersOnRosterChanged(player);
 

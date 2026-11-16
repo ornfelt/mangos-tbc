@@ -202,7 +202,7 @@ bool GameObject::Create(uint32 dbGuid, uint32 guidlow, uint32 name_id, Map* map,
     if (!guidlow)                                           // no free map guid counter, already logged
         return false;
 
-    Object::_Create(dbGuid, guidlow, goinfo->id, HIGHGUID_GAMEOBJECT);
+    Object::_Create(dbGuid, guidlow, goinfo->id, goinfo->GetHighGuid());
 
     m_goInfo = goinfo;
 
@@ -737,15 +737,7 @@ void GameObject::Update(const uint32 diff)
             if (IsInWorld())
             {
                 if (!IsUsingNewSpawningSystem()) // schedule out of range
-                {
-                    auto& clientGuids = GetClientGuidsIAmAt();
-                    for (auto& clientGuid : clientGuids)
-                        if (Player* client = GetMap()->GetPlayer(clientGuid))
-                            client->RemoveAtClient(this, true);
-                    GetMap()->AddUpdateRemoveObject(GetClientGuidsIAmAt(), GetObjectGuid());
-                    clientGuids.clear();
-                    GetClientGuidsIAmAt().clear();
-                }
+                    ScheduleOutOfRangeOnClientsIAmAt();
             }
 
             m_forcedDespawn = false;
@@ -1023,7 +1015,10 @@ void GameObject::SetOwnerGuid(ObjectGuid guid)
 
 Unit* GameObject::GetOwner() const
 {
-    return ObjectAccessor::GetUnit(*this, GetOwnerGuid());
+    if (!IsInWorld())
+        return nullptr;
+
+    return GetMap()->GetUnit(GetOwnerGuid());
 }
 
 WorldObject* GameObject::GetSpawner() const
@@ -1602,8 +1597,14 @@ void GameObject::Use(Unit* user, SpellEntry const* spellInfo)
                 caster = nullptr;
 
             if (goInfo->trap.spellId)
-                if (CastSpell(caster, user, goInfo->trap.spellId, TRIGGERED_OLD_TRIGGERED, nullptr, nullptr, GetObjectGuid()) != SPELL_CAST_OK)
+            {
+                SpellEntry const* spellInfo = sSpellTemplate.LookupEntry<SpellEntry>(goInfo->trap.spellId);
+                if (spellInfo->SpellFamilyName == SPELLFAMILY_HUNTER) // hunter traps confirmed
+                    caster = nullptr;
+
+                if (CastSpell(caster, user, spellInfo, TRIGGERED_OLD_TRIGGERED, nullptr, nullptr, GetObjectGuid()) != SPELL_CAST_OK)
                     return;
+            }
             // use template cooldown if provided
             m_cooldownTime = time(nullptr) + (goInfo->trap.cooldown ? goInfo->trap.cooldown : uint32(4));
 

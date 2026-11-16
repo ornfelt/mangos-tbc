@@ -669,6 +669,11 @@ bool Unit::UpdateMeleeAttackingState()
     if (GetTypeId() != TYPEID_PLAYER && (!static_cast<Creature*>(this)->CanInitiateAttack()))
         return false;
 
+    // a creature draws its sheathed weapon when it fights in melee
+    // a caster holding its range keeps it sheathed until its victim is within melee reach
+    if (IsCreature() && GetSheath() == SHEATH_STATE_UNARMED && !(AI() && AI()->GetCurrentRangedMode() && !CanReachWithMeleeAttack(victim)))
+        SetSheath(SHEATH_STATE_MELEE);
+
     if (m_extraAttacks)
     {
         DoExtraAttacks(victim);
@@ -2993,7 +2998,7 @@ void Unit::SendMeleeAttackStop(Unit const* victim) const
         data << victim->GetPackGUID();
     else
         data << PackedGuid();
-    data << uint32(IsDead() ? 1 : 0);
+    data << uint32(victim && IsDead() ? 1 : 0);             // the client uses it only with a victim
     SendMessageToSet(data, true);
     DETAIL_FILTER_LOG(LOG_FILTER_COMBAT, "%s stopped attacking %s", GetGuidStr().c_str(), victim ? victim->GetGuidStr().c_str() : "nothing");
 }
@@ -6585,12 +6590,8 @@ void Unit::SetPowerType(Powers new_powertype)
         if (((Player*)this)->GetGroup())
             ((Player*)this)->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_POWER_TYPE);
     }
-    else if (HasCharmer())
-    {
-        Unit* charmer = GetCharmer();
-        if (charmer && (charmer->GetTypeId() == TYPEID_PLAYER) && ((Player*)charmer)->GetGroup())
-            ((Player*)charmer)->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_PET_POWER_TYPE);
-    }
+    else if (Player* master = GetGroupUpdatePetMaster())
+        master->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_PET_POWER_TYPE);
 
     // special cases for power type switching (druid and pets only)
     if (GetTypeId() == TYPEID_PLAYER || (GetTypeId() == TYPEID_UNIT && ((Creature*)this)->IsPet()))
@@ -9784,12 +9785,8 @@ void Unit::SetHealth(uint32 val)
         if (((Player*)this)->GetGroup())
             ((Player*)this)->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_CUR_HP);
     }
-    else if (HasCharmer())
-    {
-        Unit* charmer = GetCharmer();
-        if (charmer && (charmer->GetTypeId() == TYPEID_PLAYER) && ((Player*)charmer)->GetGroup())
-            ((Player*)charmer)->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_PET_CUR_HP);
-    }
+    else if (Player* master = GetGroupUpdatePetMaster())
+        master->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_PET_CUR_HP);
 }
 
 void Unit::SetMaxHealth(uint32 val)
@@ -9803,12 +9800,8 @@ void Unit::SetMaxHealth(uint32 val)
         if (((Player*)this)->GetGroup())
             ((Player*)this)->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_MAX_HP);
     }
-    else if (HasCharmer())
-    {
-        Unit* charmer = GetCharmer();
-        if (charmer && (charmer->GetTypeId() == TYPEID_PLAYER) && ((Player*)charmer)->GetGroup())
-            ((Player*)charmer)->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_PET_MAX_HP);
-    }
+    else if (Player* master = GetGroupUpdatePetMaster())
+        master->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_PET_MAX_HP);
 
     if (val < health)
         SetHealth(val);
@@ -9837,12 +9830,8 @@ void Unit::SetPower(Powers power, uint32 val)
         if (((Player*)this)->GetGroup())
             ((Player*)this)->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_CUR_POWER);
     }
-    else if (HasCharmer())
-    {
-        Unit* charmer = GetCharmer();
-        if (charmer && (charmer->GetTypeId() == TYPEID_PLAYER) && ((Player*)charmer)->GetGroup())
-            ((Player*)charmer)->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_PET_CUR_POWER);
-    }
+    else if (Player* master = GetGroupUpdatePetMaster())
+        master->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_PET_CUR_POWER);
 
     if (GetTypeId() == TYPEID_UNIT && ((Creature*)this)->IsPet())
     {
@@ -9864,12 +9853,8 @@ void Unit::SetMaxPower(Powers power, uint32 val)
         if (((Player*)this)->GetGroup())
             ((Player*)this)->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_MAX_POWER);
     }
-    else if (HasCharmer())
-    {
-        Unit* charmer = GetCharmer();
-        if (charmer && (charmer->GetTypeId() == TYPEID_PLAYER) && ((Player*)charmer)->GetGroup())
-            ((Player*)charmer)->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_PET_MAX_POWER);
-    }
+    else if (Player* master = GetGroupUpdatePetMaster())
+        master->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_PET_MAX_POWER);
 
     if (val < cur_power)
         SetPower(power, val);
@@ -9885,12 +9870,8 @@ void Unit::ApplyPowerMod(Powers power, uint32 val, bool apply)
         if (((Player*)this)->GetGroup())
             ((Player*)this)->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_CUR_POWER);
     }
-    else if (HasCharmer())
-    {
-        Unit* charmer = GetCharmer();
-        if (charmer && (charmer->GetTypeId() == TYPEID_PLAYER) && ((Player*)charmer)->GetGroup())
-            ((Player*)charmer)->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_PET_CUR_POWER);
-    }
+    else if (Player* master = GetGroupUpdatePetMaster())
+        master->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_PET_CUR_POWER);
 }
 
 void Unit::ApplyMaxPowerMod(Powers power, uint32 val, bool apply)
@@ -9903,12 +9884,8 @@ void Unit::ApplyMaxPowerMod(Powers power, uint32 val, bool apply)
         if (((Player*)this)->GetGroup())
             ((Player*)this)->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_MAX_POWER);
     }
-    else if (HasCharmer())
-    {
-        Unit* charmer = GetCharmer();
-        if (charmer && (charmer->GetTypeId() == TYPEID_PLAYER) && ((Player*)charmer)->GetGroup())
-            ((Player*)charmer)->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_PET_MAX_POWER);
-    }
+    else if (Player* master = GetGroupUpdatePetMaster())
+        master->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_PET_MAX_POWER);
 }
 
 void Unit::ApplyAuraProcTriggerDamage(Aura* aura, bool apply)
@@ -10737,12 +10714,8 @@ void Unit::SetDisplayId(uint32 modelId)
 
     UpdateModelData();
 
-    if (HasCharmer())
-    {
-        Unit* charmer = GetCharmer();
-        if (charmer && (charmer->GetTypeId() == TYPEID_PLAYER) && ((Player*)charmer)->GetGroup())
-            ((Player*)charmer)->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_PET_MODEL_ID);
-    }
+    if (Player* master = GetGroupUpdatePetMaster())
+        master->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_PET_MODEL_ID);
 }
 
 void Unit::RestoreDisplayId()
@@ -11049,15 +11022,28 @@ void Unit::UpdateAuraForGroup(uint8 slot)
             player->SetAuraUpdateMask(slot);
         }
     }
-    else if (HasCharmer())
+    else if (Player* master = GetGroupUpdatePetMaster())
     {
-        Unit* charmer = GetCharmer();
-        if (charmer && (charmer->GetTypeId() == TYPEID_PLAYER) && ((Player*)charmer)->GetGroup())
-        {
-            ((Player*)charmer)->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_PET_AURAS);
-            SetAuraUpdateMask(slot);
-        }
+        master->SetGroupUpdateFlag(GROUP_UPDATE_FLAG_PET_AURAS);
+        SetAuraUpdateMask(slot);
     }
+}
+
+Player* Unit::GetGroupUpdatePetMaster() const
+{
+    // Only a charm or a pet can stand in the pet fields of its master's group member stats
+    if (!HasCharmer() && !(IsCreature() && static_cast<Creature const*>(this)->IsPet()))
+        return nullptr;
+
+    Unit* master = GetMaster();
+    if (!master || !master->IsPlayer())
+        return nullptr;
+
+    Player* player = static_cast<Player*>(master);
+    if (!player->GetGroup() || player->GetGroupUpdatePet() != this)
+        return nullptr;
+
+    return player;
 }
 
 float Unit::GetAPMultiplier(WeaponAttackType attType, bool normalized)

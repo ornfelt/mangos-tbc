@@ -61,11 +61,6 @@ class Item;
 struct FactionTemplateEntry;
 struct VendorItem;
 
-#ifdef BUILD_DEPRECATED_PLAYERBOT
-#include "PlayerBot/Base/PlayerbotMgr.h"
-#include "PlayerBot/Base/PlayerbotAI.h"
-#endif
-
 #ifdef ENABLE_PLAYERBOTS
 class PlayerbotAI;
 class PlayerbotMgr;
@@ -1389,17 +1384,6 @@ class Player : public Unit
         void AddTimedQuest(uint32 quest_id) { m_timedquests.insert(quest_id); }
         void RemoveTimedQuest(uint32 quest_id) { m_timedquests.erase(quest_id); }
 
-#ifdef BUILD_DEPRECATED_PLAYERBOT
-        void chompAndTrim(std::string& str);
-        bool getNextQuestId(const std::string& pString, unsigned int& pStartPos, unsigned int& pId);
-        void skill(std::list<uint32>& m_spellsToLearn);
-        bool requiredQuests(const char* pQuestIdString);
-        PlayerMails::reverse_iterator GetMailRBegin() { return m_mail.rbegin();}
-        PlayerMails::reverse_iterator GetMailREnd() { return m_mail.rend();}
-        void UpdateMail();
-        uint32 GetSpec();
-#endif
-
         /*********************************************************/
         /***                   LOAD SYSTEM                     ***/
         /*********************************************************/
@@ -1920,7 +1904,6 @@ class Player : public Unit
         void SendUpdateWorldState(uint32 Field, uint32 Value) const;
         void SendDirectMessage(WorldPacket const& data) const;
 
-        void SendAuraDurationsForTarget(Unit* target);
         void SendAuraDurationsOnLogin(); // sends own durations
         void SendExtraAuraDurationsOnLogin(bool visible); // sends init and non visible slot auras
 
@@ -2126,20 +2109,40 @@ class Player : public Unit
 
         Object* GetObjectByTypeMask(ObjectGuid guid, TypeMask typemask);
 
-        // currently visible objects at player client
-        bool HasAtClient(WorldObject const* u) { return u == this || m_clientGUIDs.find(u->GetObjectGuid()) != m_clientGUIDs.end(); }
-        void AddAtClient(WorldObject* target);
-        void RemoveAtClient(WorldObject* target, bool skipRemovalOfAt = false);
-        void DestroyAtClient(WorldObject* target, bool skipRemovalOfAt = false);
-        GuidSet& GetClientGuids() { return m_clientGUIDs; }
+        // What the client has of each world object, the player itself apart. A visibility decision changes it at once, so
+        // that every later check agrees; the creation or the out of range block is written into the next update packet of
+        // the client (WriteViewChanges). All changes go through SetClientState.
+        bool HasAtClient(WorldObject const* u) const { return u == this || HasAtClient(u->GetObjectGuid()); } // seen
+        bool HasAtClient(ObjectGuid const& guid) const;
+        bool IsCreatedAtClient(WorldObject const* u) const;         // seen and its creation written
+        bool IsCreationPending(WorldObject const* u) const;
+        void ScheduleCreate(WorldObject* target);
+        void ScheduleOutOfRange(WorldObject* target);
+        void ScheduleOutOfRange(ObjectGuid const& guid);            // an object at the client no longer in the map
+        void CreateAtClient(WorldObject* target, UpdateData& data); // the creation is written into data now
+        void RemoveAtClient(WorldObject* target, UpdateData& data); // the out of range block is written into data now
+        void DestroyAtClient(WorldObject* target);                  // SMSG_DESTROY_OBJECT now
+        void ForgetClientObjects();                                 // the client starts again from nothing
+        // the out of range block, then the creations, a transport before its passengers
+        void WriteViewChanges(UpdateData& data);
+
+        // items of the player: their creation and out of range block go into the next update packet of the client
+        void ScheduleItemCreate(Item* item) { m_pendingItemCreations.push_back(item); }
+        void ScheduleItemOutOfRange(ObjectGuid const& itemGuid) { m_clientUpdate.AddOutOfRangeGUID(itemGuid); }
+        bool IsItemCreationPending(Item const* item) const;
+
+        // update packet of the client, sent at the client update tick of the map (Map::SendObjectUpdates)
+        UpdateData& GetClientUpdate() { return m_clientUpdate; }
+        void SendClientUpdate();
 
         bool IsVisibleInGridForPlayer(Player* pl) const override;
         bool IsVisibleGloballyFor(Player* u) const;
 
-        void UpdateVisibilityOf(WorldObject const* viewPoint, WorldObject* target, UpdateData& updateData);
-
-        template<class T>
-        void UpdateVisibilityOf(WorldObject const* viewPoint, T* target, UpdateData& data, WorldObjectSet& visibleNow);
+        // decides whether target enters or leaves the view of the client, as seen from viewPoint
+        void UpdateVisibilityOf(WorldObject const* viewPoint, WorldObject* target);
+        // visibility updates of the camera: an object seen at the client and not met by the last one is out of view
+        void StartCameraVisit() { ++m_cameraVisit; }
+        void GetObjectsNotMetByCameraVisit(GuidVector& guids) const;
 
         void BeforeVisibilityDestroy(Creature* creature);
 
@@ -2209,6 +2212,7 @@ class Player : public Unit
         uint8 GetSubGroup() const { return m_group.getSubGroup(); }
         uint32 GetGroupUpdateFlag() const { return m_groupUpdateMask; }
         void SetGroupUpdateFlag(uint32 flag) { m_groupUpdateMask |= flag; }
+        Unit* GetGroupUpdatePet() const;
         Player* GetNextRaidMemberWithLowestLifePercentage(float radius, AuraType noAuraType);
         PartyResult CanUninviteFromGroup() const;
         void UpdateGroupLeaderFlag(const bool remove = false);
@@ -2230,17 +2234,6 @@ class Player : public Unit
         void SetTitle(CharTitlesEntry const* title, bool lost = false, bool send = true);
 
         void SendMessageToPlayer(std::string const& message) const; // debugging purposes
-
-#ifdef BUILD_DEPRECATED_PLAYERBOT
-        // A Player can either have a playerbotMgr (to manage its bots), or have playerbotAI (if it is a bot), or
-        // neither. Code that enables bots must create the playerbotMgr and set it using SetPlayerbotMgr.
-        void SetPlayerbotAI(PlayerbotAI* ai) { assert(!m_playerbotAI && !m_playerbotMgr); m_playerbotAI = ai; }
-        PlayerbotAI* GetPlayerbotAI() { return m_playerbotAI; }
-        void SetPlayerbotMgr(PlayerbotMgr* mgr) { assert(!m_playerbotAI && !m_playerbotMgr); m_playerbotMgr = mgr; }
-        PlayerbotMgr* GetPlayerbotMgr() { return m_playerbotMgr; }
-        void SetBotDeathTimer() { m_deathTimer = 0; }
-        bool IsInDuel() const { return duel && duel->startTime != 0; }
-#endif
 
 #ifdef ENABLE_PLAYERBOTS
         // A Player can either have a playerbotMgr (to manage its bots), or have playerbotAI (if it is a bot), or
@@ -2580,11 +2573,6 @@ class Player : public Unit
         MapReference m_mapRef;
         std::unique_ptr<PlayerMenu> m_playerMenu;
 
-#ifdef BUILD_DEPRECATED_PLAYERBOT
-        PlayerbotAI* m_playerbotAI;
-        PlayerbotMgr* m_playerbotMgr;
-#endif
-
 #ifdef ENABLE_PLAYERBOTS
         std::unique_ptr<PlayerbotAI> m_playerbotAI;
         std::unique_ptr<PlayerbotMgr> m_playerbotMgr;
@@ -2611,6 +2599,7 @@ class Player : public Unit
         WorldLocation m_teleport_dest;
         uint32 m_teleport_options;
         ObjectGuid m_teleportTransport;
+        Position m_teleportWorldDest;                       // world position of a delayed teleport onto a transport
         bool m_semaphoreTeleport_Near;
         bool m_semaphoreTeleport_Far;
 
@@ -2642,7 +2631,30 @@ class Player : public Unit
         Spell* m_modsSpell;
         std::set<SpellModifierPair>* m_consumedMods;
 
-        GuidSet m_clientGUIDs;
+        enum class ClientObjectState : uint8
+        {
+            NONE,                                           // unknown to the client, never stored
+            CREATION_PENDING,                               // seen, its creation not written yet
+            CREATED,                                        // at the client
+            OUT_OF_RANGE_PENDING,                           // no longer seen, at the client until the out of range block
+        };
+        struct ClientObject
+        {
+            ClientObjectState state;
+            uint32 cameraVisit;                             // last camera visit that met the object
+            WorldObject* pendingObject;                     // set while the creation is pending
+        };
+        void SetClientState(ObjectGuid const& guid, WorldObject* target, ClientObject* clientObject, ClientObjectState state);
+        ClientObject* FindClientObject(ObjectGuid const& guid);
+        void SeeAtClient(WorldObject* target, ClientObject* clientObject);
+        void LoseAtClient(ObjectGuid const& guid, WorldObject* target, ClientObject* clientObject);
+
+        std::unordered_map<ObjectGuid, ClientObject> m_clientObjects;
+        GuidVector m_pendingCreations;                      // may hold stale guids, checked against m_clientObjects
+        GuidVector m_pendingOutOfRange;                     // same
+        std::vector<Item*> m_pendingItemCreations;
+        uint32 m_cameraVisit;
+        UpdateData m_clientUpdate;
 
         // Recruit-A-Friend
         uint8 m_grantableLevels;

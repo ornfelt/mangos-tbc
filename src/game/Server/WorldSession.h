@@ -261,7 +261,7 @@ class WorldSession
         char const* GetPlayerName() const;
         std::string GetChatType(uint32 type);
         void SetSecurity(AccountTypes security) { _security = security; }
-#if defined(BUILD_DEPRECATED_PLAYERBOT) || defined(ENABLE_PLAYERBOTS)
+#ifdef ENABLE_PLAYERBOTS
         // Players connected without socket are bot
         const std::string GetRemoteAddress() const { return m_socket ? m_socket->GetRemoteAddress() : "disconnected/bot"; }
 #else
@@ -277,7 +277,7 @@ class WorldSession
         void AssignAnticheat(std::unique_ptr<SessionAnticheatInterface>&& anticheat);
         SessionAnticheatInterface* GetAnticheat() const { return m_anticheat.get(); }
 
-#if defined(BUILD_DEPRECATED_PLAYERBOT) || defined(ENABLE_PLAYERBOTS)
+#ifdef ENABLE_PLAYERBOTS
         void SetNoAnticheat();
 #endif
 
@@ -432,6 +432,7 @@ class WorldSession
         const char* GetMangosString(int32 entry) const;
 
         uint32 GetLatency() const { return m_latency; }
+        uint32 GetOneWayDelay() const;
         void SetLatency(uint32 latency) { m_latency = latency; }
         uint32 getDialogStatus(const Player* pPlayer, const Object* questgiver, uint32 defstatus) const;
         ClientOSType GetOS() const { return m_clientOS; }
@@ -978,6 +979,7 @@ class WorldSession
 
         boost::circular_buffer<std::pair<int64, uint32>> m_timeSyncClockDeltaQueue; // first member: clockDelta. Second member: latency of the packet exchange that was used to compute that clockDelta.
         int64 m_timeSyncClockDelta;
+        std::atomic<uint32> m_timeSyncRoundTrip;           // median round trip of the clock synchronisation
         void ComputeNewClockDelta();
 
         std::map<uint32, uint32> m_pendingTimeSyncRequests; // key: counter. value: server time when packet with that counter was sent.

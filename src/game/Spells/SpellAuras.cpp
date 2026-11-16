@@ -3701,7 +3701,9 @@ void Aura::HandleModPossess(bool apply, bool Real)
 
         caster->TakePossessOf(target);
 
-        if (Player* playerCaster = caster->IsPlayer() ? static_cast<Player*>(caster) : nullptr)
+        // a creation not written yet carries the values
+        Player* playerCaster = caster->IsPlayer() ? static_cast<Player*>(caster) : nullptr;
+        if (playerCaster && !playerCaster->IsCreationPending(target))
         {
             UpdateData newData;
             target->BuildValuesUpdateBlockForPlayerWithFlags(newData, playerCaster, UF_FLAG_OWNER_ONLY);
@@ -3816,7 +3818,7 @@ void Aura::HandleModCharm(bool apply, bool Real)
 
         caster->TakeCharmOf(target, GetId());
 
-        if (playerCaster)
+        if (playerCaster && !playerCaster->IsCreationPending(target)) // a creation not written yet carries the values
         {
             UpdateMask updateMask;
             updateMask.SetCount(target->GetValuesCount());
@@ -4831,10 +4833,6 @@ void Aura::HandlePeriodicTriggerSpell(bool apply, bool /*Real*/)
                         if (Unit* Temp = caster->GetMap()->GetUnit(i->getUnitGuid()))
                             caster->getThreatManager().modifyThreatPercent(Temp, -100);
                 }
-                return;
-            case 42783:                                     // Wrath of the Astrom...
-                if (m_removeMode == AURA_REMOVE_BY_EXPIRE && GetEffIndex() + 1 < MAX_EFFECT_INDEX)
-                    target->CastSpell(target, GetSpellProto()->CalculateSimpleValue(SpellEffectIndex(GetEffIndex() + 1)), TRIGGERED_OLD_TRIGGERED, nullptr, nullptr, GetCasterGuid());
                 return;
             case 42177:                                     // Alert Drums
                 if (m_removeMode == AURA_REMOVE_BY_EXPIRE)
@@ -7665,10 +7663,18 @@ SpellAuraHolder::SpellAuraHolder(SpellEntry const* spellproto, Unit* target, Wor
     if (!caster)
         m_casterGuid = target->GetObjectGuid();
     else
+    {
+        // hunter traps confirmed that while spell caster is GO, aura caster is player
+        if (spellproto->SpellFamilyName == SPELLFAMILY_HUNTER)
+        {
+            if (Player* player = caster->GetMap()->GetPlayer(caster->GetOwnerGuid()))
+                caster = player;
+        }
         m_casterGuid = caster->GetObjectGuid();
+    }
 
     m_applyTime      = time(nullptr);
-    m_applyMSTime = target->GetMap()->GetCurrentMSTime();
+    m_applyMSTime    = target->GetMap()->GetCurrentMSTime();
     m_isPassive      = IsPassiveSpell(spellproto);
     m_isDeathPersist = IsDeathPersistentSpell(spellproto);
     m_trackedAuraType = sSpellMgr.IsSingleTargetSpell(spellproto) ? TRACK_AURA_TYPE_SINGLE_TARGET : TRACK_AURA_TYPE_NOT_TRACKED;
