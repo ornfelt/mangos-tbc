@@ -8765,7 +8765,8 @@ Item* Player::GetItemByGuid(ObjectGuid guid) const
                     if (pItem->GetObjectGuid() == guid)
                         return pItem;
 
-    for (int i = BANK_SLOT_ITEM_START; i < BANK_SLOT_ITEM_END; ++i)
+    // bank slots and bank bags, whose contents are searched below
+    for (int i = BANK_SLOT_ITEM_START; i < BANK_SLOT_BAG_END; ++i)
         if (Item* pItem = GetItemByPos(INVENTORY_SLOT_BAG_0, i))
             if (pItem->GetObjectGuid() == guid)
                 return pItem;
@@ -9046,7 +9047,8 @@ bool Player::HasItemCount(uint32 item, uint32 count, bool inBankAlso) const
 
     if (inBankAlso)
     {
-        for (int i = BANK_SLOT_ITEM_START; i < BANK_SLOT_ITEM_END; ++i)
+        // bank slots and bank bags, whose contents are counted below
+        for (int i = BANK_SLOT_ITEM_START; i < BANK_SLOT_BAG_END; ++i)
         {
             Item* pItem = GetItemByPos(INVENTORY_SLOT_BAG_0, i);
             if (pItem && pItem->GetEntry() == item && !pItem->IsInTrade())
@@ -15167,17 +15169,6 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder)
 
     _LoadBoundInstances(holder->GetResult(PLAYER_LOGIN_QUERY_LOADBOUNDINSTANCES));
 
-    if (!IsPositionValid())
-    {
-        sLog.outError("%s have invalid coordinates (X: %f Y: %f Z: %f O: %f). Teleport to default race/class locations.",
-                      guid.GetString().c_str(), GetPositionX(), GetPositionY(), GetPositionZ(), GetOrientation());
-        RelocateToHomebind();
-
-        transGUID = 0;
-
-        m_movementInfo.ClearTransportData();
-    }
-
     _LoadBGData(holder->GetResult(PLAYER_LOGIN_QUERY_LOADBGDATA));
 
     if (m_bgData.bgInstanceID)                              // saved in BattleGround
@@ -15234,6 +15225,18 @@ bool Player::LoadFromDB(ObjectGuid guid, SqlQueryHolder* holder)
             // remove outdated DB data in DB
             _SaveBGData();
         }
+    }
+
+    // the position is either the saved one or the battleground entry point
+    if (!MapManager::IsValidMapCoord(GetMapId(), GetPositionX(), GetPositionY(), GetPositionZ(), GetOrientation()))
+    {
+        sLog.outError("%s have invalid coordinates (Map: %u X: %f Y: %f Z: %f O: %f). Teleport to default race/class locations.",
+                      guid.GetString().c_str(), GetMapId(), GetPositionX(), GetPositionY(), GetPositionZ(), GetOrientation());
+        RelocateToHomebind();
+
+        transGUID = 0;
+
+        m_movementInfo.ClearTransportData();
     }
 
     if (transGUID != 0)
@@ -19822,6 +19825,10 @@ void Player::SendInitialPacketsAfterAddToMap(bool reconnect)
         WorldPacket data(SMSG_LFG_DISABLED);
         GetSession()->SendPacket(data);
     }
+
+    // a voter arriving on the map during a group loot roll gets it again
+    if (IsInWorld())
+        GetMap()->ResendLootRollsTo(this);
 }
 
 Unit* Player::GetGroupUpdatePet() const
