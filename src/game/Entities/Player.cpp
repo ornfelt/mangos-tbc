@@ -1605,8 +1605,9 @@ void Player::Update(const uint32 diff)
     else
         m_createdInstanceClearTimer -= diff;
 
+    // a pet beyond the visibility distance is unsummoned, unless its owner possesses it (Eyes of the Beast)
     Pet* pet = GetPet();
-    if (pet && !pet->IsWithinDistInMap(this, GetMap()->GetVisibilityDistance()) && (GetCharmGuid() && (pet->GetObjectGuid() != GetCharmGuid())))
+    if (pet && !pet->IsWithinDistInMap(this, GetMap()->GetVisibilityDistance()) && pet->GetObjectGuid() != GetCharmGuid())
         pet->Unsummon(PET_SAVE_REAGENTS, this);
 
     if (IsHasDelayedTeleport() && !m_semaphoreTeleport_Near)
@@ -1968,9 +1969,9 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
     if (!InBattleGround() && mEntry->IsBattleGroundOrArena())
         return false;
 
-    // Get MapEntrance trigger if teleport to other -nonBG- map
+    // Get MapEntrance trigger if teleport to other -nonBG- map, or for a player outside the world, who enters the map anew
     bool assignedAreaTrigger = false;
-    if (GetMapId() != mapid && !mEntry->IsBattleGroundOrArena() && !at)
+    if ((GetMapId() != mapid || !IsInWorld()) && !mEntry->IsBattleGroundOrArena() && !at)
     {
         at = sObjectMgr.GetMapEntranceTrigger(mapid);
         assignedAreaTrigger = true;
@@ -1980,7 +1981,7 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
     if (at)
     {
         uint32 miscRequirement = 0;
-        AreaLockStatus lockStatus = GetAreaTriggerLockStatus(at, miscRequirement);
+        AreaLockStatus lockStatus = GetAreaTriggerLockStatus(at, miscRequirement, !IsInWorld());
         if (lockStatus != AREA_LOCKSTATUS_OK)
         {
             // Teleport not requested by area-trigger
@@ -2053,7 +2054,9 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
         destTransport = GetMap()->GetTransport(m_teleportTransport);
     bool const nearOntoTransport = destTransport && destTransport != m_transport;
 
-    if ((GetMapId() == mapid) && (!m_transport) && !nearOntoTransport) // TODO the !m_transport might have unexpected effects when teleporting from transport to other place on same map
+    // A player outside the world (already removed from its map) needs the far path even on the same map id: the near path
+    // never adds it back to a map.
+    if ((GetMapId() == mapid) && (!m_transport) && !nearOntoTransport && IsInWorld()) // TODO the !m_transport might have unexpected effects when teleporting from transport to other place on same map
     {
         // lets reset far teleport flag if it wasn't reset during chained teleports
         SetSemaphoreTeleportFar(false);
