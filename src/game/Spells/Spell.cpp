@@ -1780,6 +1780,10 @@ class ChainHealingFullHealth
 
 bool Spell::CheckAndAddMagnetTarget(Unit* target, SpellEffectIndex effIndex, bool targetB, TempTargetingData& data)
 {
+    // Gameobject casters (traps) have no unit caster to check the magnet against
+    if (!m_caster)
+        return false;
+
     if (Unit* magnetTarget = m_caster->SelectMagnetTarget(target, this))
     {
         // Found. Push totem as target instead.
